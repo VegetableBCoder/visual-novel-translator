@@ -42,16 +42,17 @@ class RegionSelectWidget(QWidget):
 
         # 选区相关
         self.selection_rect = None  # 选区在图片显示区域中的坐标
+        self.selection_ratio = None  # 选区的相对比例坐标（0-1），用于暂存
         self.min_selection_size = 30  # 选区最小尺寸（像素）
 
         # 交互状态
-        self.mode = 'none'  # 当前操作模式：none, creating, moving, resizing
+        self.mode = 'none'  # 当前操作模式：none, moving, resizing
         self.resize_direction = None  # 拉伸方向
         self.drag_start_pos = None  # 拖拽起始点
         self.original_rect = None  # 操作前的选区备份
 
         # 控制点相关
-        self.handle_size = 6  # 控制点尺寸（像素）
+        self.handle_size = 15  # 控制点尺寸（像素）
         self.hovered_handle = None  # 当前悬停的控制点
 
         # 信号节流
@@ -70,11 +71,21 @@ class RegionSelectWidget(QWidget):
         Args:
             pixmap: QPixmap 对象
         """
+        # 保存当前选区的相对比例（如果存在）
+        if self.selection_rect:
+            self.selection_ratio = self.get_selection_ratio()
+
         self.original_pixmap = pixmap
         self.original_size = (pixmap.width(), pixmap.height())
         self.scaled_pixmap = None  # 清除缩放缓存
         self._update_scale()  # 计算缩放
-        self._create_default_selection()  # 创建默认选区
+
+        # 如果有保存的选区比例，则恢复选区；否则创建默认选区
+        if self.selection_ratio:
+            self._restore_selection_from_ratio()
+        else:
+            self._create_default_selection()
+
         self.update()  # 触发重绘
 
     def _update_scale(self):
@@ -119,6 +130,23 @@ class RegionSelectWidget(QWidget):
         rect_y = (self.pixmap_rect.height() - rect_h) / 2
 
         self.selection_rect = QRectF(rect_x, rect_y, rect_w, rect_h)
+
+    def _restore_selection_from_ratio(self):
+        """从保存的相对比例恢复选区位置"""
+        if self.selection_ratio is None or self.pixmap_rect is None:
+            return
+
+        ratio = self.selection_ratio
+        orig_w, orig_h = self.original_size
+
+        # 计算缩放后的选区位置和尺寸
+        left = ratio['left'] * orig_w * self.current_scale
+        top = ratio['top'] * orig_h * self.current_scale
+        right = ratio['right'] * orig_w * self.current_scale
+        bottom = ratio['bottom'] * orig_h * self.current_scale
+
+        from PyQt5.QtCore import QRectF
+        self.selection_rect = QRectF(left, top, right - left, bottom - top)
 
     def widget_to_display(self, widget_pos):
         """
@@ -210,7 +238,13 @@ class RegionSelectWidget(QWidget):
             return None
 
         # 将图片显示坐标转换为原始图片坐标
-        orig_rect = self.selection_rect / self.current_scale
+        from PyQt5.QtCore import QRectF
+        orig_rect = QRectF(
+            self.selection_rect.left() / self.current_scale,
+            self.selection_rect.top() / self.current_scale,
+            self.selection_rect.width() / self.current_scale,
+            self.selection_rect.height() / self.current_scale
+        )
 
         # 转换为相对比例坐标
         return self.original_to_relative(orig_rect)
@@ -257,6 +291,51 @@ class RegionSelectWidget(QWidget):
             'bottomright': QRectF(r.right() - hs/2, r.bottom() - hs/2, hs, hs)
         }
 
+    def _get_edge_at_pos(self, display_pos):
+        """
+        根据鼠标位置判断命中的边框
+
+        Args:
+            display_pos: QPointF 图片显示区域坐标
+
+        Returns:
+            str: 边框名称（'left', 'right', 'top', 'bottom', 'topleft', 'topright', 'bottomleft', 'bottomright'），未命中返回 None
+        """
+        if self.selection_rect is None:
+            return None
+
+        r = self.selection_rect
+        edge_threshold = 6  # 边框检测阈值（像素）
+
+        x = display_pos.x()
+        y = display_pos.y()
+        left_dist = abs(x - r.left())
+        right_dist = abs(x - r.right())
+        top_dist = abs(y - r.top())
+        bottom_dist = abs(y - r.bottom())
+
+        # 检查角落（两个方向同时拉伸）
+        if left_dist < edge_threshold and top_dist < edge_threshold:
+            return 'topleft'
+        if right_dist < edge_threshold and top_dist < edge_threshold:
+            return 'topright'
+        if left_dist < edge_threshold and bottom_dist < edge_threshold:
+            return 'bottomleft'
+        if right_dist < edge_threshold and bottom_dist < edge_threshold:
+            return 'bottomright'
+
+        # 检查四条边（单方向拉伸）
+        if left_dist < edge_threshold:
+            return 'left'
+        if right_dist < edge_threshold:
+            return 'right'
+        if top_dist < edge_threshold:
+            return 'top'
+        if bottom_dist < edge_threshold:
+            return 'bottom'
+
+        return None
+
     def _get_handle_at_pos(self, display_pos):
         """
         根据鼠标位置判断命中的控制点
@@ -267,8 +346,12 @@ class RegionSelectWidget(QWidget):
         Returns:
             str: 控制点名称，未命中返回 None
         """
+        if self.selection_rect is None:
+            return None
+
         handles = self.get_handle_rects()
         for name, rect in handles.items():
+            # 稍微扩大检测范围，使得更容易点中
             if rect.contains(display_pos):
                 return name
         return None
@@ -426,7 +509,17 @@ class RegionSelectWidget(QWidget):
             event.accept()
             return
 
-        # 2. 检查是否在选区内部
+        # 2. 检查是否命中边框
+        edge = self._get_edge_at_pos(display_pos)
+        if edge:
+            self.mode = 'resizing'
+            self.resize_direction = edge
+            self.drag_start_pos = display_pos
+            self.original_rect = self.selection_rect.normalized()
+            event.accept()
+            return
+
+        # 3. 检查是否在选区内部
         if self.selection_rect and self.selection_rect.contains(display_pos):
             self.mode = 'moving'
             self.drag_start_pos = display_pos
@@ -434,48 +527,29 @@ class RegionSelectWidget(QWidget):
             event.accept()
             return
 
-        # 3. 在遮罩区域，创建新选区
-        self.mode = 'creating'
-        self.drag_start_pos = display_pos
-        self.original_rect = None
-        # 创建极小的初始矩形
-        from PyQt5.QtCore import QRectF
-        self.selection_rect = QRectF(display_pos, display_pos)
-        event.accept()
+        # 3. 点击在图片区域内但选区外，不执行任何操作
+        # 只支持移动和拉伸现有选区，不支持创建新选区
+        super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
         """鼠标移动事件"""
         from PyQt5.QtCore import QPointF
         pos = QPointF(event.pos())
+
+        # 始终检查并更新光标形状（无论当前模式）
+        self._update_cursor_widget_pos(pos)
+
+        # 只在图片区域内处理操作
+        if self.pixmap_rect is None or not self.pixmap_rect.contains(pos):
+            return
+
         display_pos = self.widget_to_display(pos)
 
         # 处理不同的操作模式
-        if self.mode == 'creating':
-            self._update_creating_selection(display_pos)
-        elif self.mode == 'moving':
+        if self.mode == 'moving':
             self._update_moving_selection(display_pos)
         elif self.mode == 'resizing':
             self._update_resizing_selection(display_pos)
-        else:
-            # none 模式：更新光标形状
-            self._update_cursor(display_pos)
-
-    def _update_creating_selection(self, display_pos):
-        """更新创建中的选区"""
-        from PyQt5.QtCore import QRectF, QPointF
-
-        # 计算新矩形（从起始点到当前点）
-        new_rect = QRectF(self.drag_start_pos, display_pos).normalized()
-
-        # 约束边界
-        new_rect = self._constrain_to_pixmap(new_rect)
-
-        # 应用约束
-        self.selection_rect = self.constrain_rect(new_rect)
-
-        # 触发重绘和信号
-        self.update()
-        self._signal_timer.start(50)
 
     def _update_moving_selection(self, display_pos):
         """更新移动中的选区"""
@@ -539,14 +613,29 @@ class RegionSelectWidget(QWidget):
 
         return QRectF(left, top, right - left, bottom - top)
 
-    def _update_cursor(self, display_pos):
-        """根据鼠标位置更新光标形状"""
+    def _update_cursor_widget_pos(self, widget_pos):
+        """
+        根据控件坐标位置更新光标形状
+
+        Args:
+            widget_pos: QPointF 控件坐标
+        """
+        # 如果没有图片，显示默认光标
+        if self.pixmap_rect is None:
+            self.setCursor(Qt.ArrowCursor)
+            return
+
         # 检查是否在图片显示区域内
-        w = self.pixmap_rect.width()
-        h = self.pixmap_rect.height()
-        if display_pos.x() < 0 or display_pos.y() < 0 or display_pos.x() > w or display_pos.y() > h:
+        if not self.pixmap_rect.contains(widget_pos):
             self.setCursor(Qt.ArrowCursor)
             self.hovered_handle = None
+            return
+
+        # 转换为图片显示坐标
+        display_pos = self.widget_to_display(widget_pos)
+
+        # 如果正在拖拽（移动或拉伸），保持当前光标不变
+        if self.mode in ('moving', 'resizing'):
             return
 
         # 检查控制点
@@ -556,14 +645,21 @@ class RegionSelectWidget(QWidget):
             self.hovered_handle = handle
             return
 
+        # 检查边框
+        edge = self._get_edge_at_pos(display_pos)
+        if edge:
+            self.setCursor(self._get_cursor_for_handle(edge))
+            self.hovered_handle = None
+            return
+
         # 检查选区内部
         if self.selection_rect and self.selection_rect.contains(display_pos):
             self.setCursor(Qt.SizeAllCursor)
             self.hovered_handle = None
             return
 
-        # 图片其他区域
-        self.setCursor(Qt.CrossCursor)
+        # 图片其他区域（选区外）：显示默认箭头
+        self.setCursor(Qt.ArrowCursor)
         self.hovered_handle = None
 
     def mouseReleaseEvent(self, event):
@@ -633,22 +729,6 @@ class RegionSelectWidget(QWidget):
                 )
 
             self.update()
-
-    def mousePressEvent(self, event):
-        """鼠标按下事件"""
-        # TODO: 实现选区创建/移动/拉伸状态切换
-        super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event):
-        """鼠标移动事件"""
-        # TODO: 实现选区创建/移动/拉伸逻辑
-        # TODO: 更新光标形状
-        super().mouseMoveEvent(event)
-
-    def mouseReleaseEvent(self, event):
-        """鼠标释放事件"""
-        # TODO: 实现操作完成、状态重置
-        super().mouseReleaseEvent(event)
 
 
 class RegionSelectWidgetWrapper(QWidget):

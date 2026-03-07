@@ -10,8 +10,8 @@
 |----|----------|--------|-----------|-------|
 | REQ-001 | 0-整体需求.md | Done | 2026-03-06 | 整体功能设计概述 |
 | REQ-002 | 1-翻译基础设置.md | In Progress | 2026-03-06 | 翻译设置界面需求（开发中） |
-| REQ-003 | 2-翻译窗口选择.md | Todo | - | 窗口选择界面需求 |
-| REQ-004 | 3-截屏区域定位.md | Todo | - | 区域选择界面需求 |
+| REQ-003 | 2-翻译窗口选择.md | Done | 2026-03-07 | 窗口选择界面需求 |
+| REQ-004 | 3-截屏区域定位.md | Done | 2026-03-07 | 区域选择界面需求 |
 | REQ-005 | 4-运行参数配置.md | Todo | - | 运行参数配置需求 |
 | REQ-006 | 5-OCR文本识别.md | Todo | - | OCR识别后台功能需求 |
 | REQ-007 | 6-文本翻译.md | Todo | - | 文本翻译与结果展示需求 |
@@ -63,23 +63,23 @@
 
 | ID | 任务描述 | 状态 | 优先级 | 关联需求 | 备注 |
 |----|----------|--------|--------|----------|-------|
-| DEV-021 | core/window_capture.py 窗口截图服务 | Todo | High | REQ-4 | 使用 hwnd 获取窗口截图的公共工具，支持定时截图 |
-| DEV-022 | ui/region_select.py 主界面框架 | Todo | High | REQ-4 | 区域选择界面布局、按钮、标签 |
-| DEV-023 | ui/region_select_widget.py 基础结构 | Todo | High | REQ-4 | RegionSelectWidget 初始化、数据结构 |
-| DEV-024 | ui/region_select_widget.py 图片展示与缩放 | Todo | High | REQ-4 | 加载图片、缩放适配、居中显示 |
-| DEV-025 | ui/region_select_widget.py 坐标转换系统 | Todo | High | REQ-4 | 控件/显示/原始/比例坐标转换 |
-| DEV-026 | ui/region_select_widget.py 边界约束函数 | Todo | High | REQ-4 | constrain_rect 边界与最小尺寸约束 |
-| DEV-027 | ui/region_select_widget.py 遮罩层绘制 | Todo | High | REQ-4 | 半透明遮罩、亮色选区绘制 |
-| DEV-028 | ui/region_select_widget.py 选区边框绘制 | Todo | High | REQ-4 | 2px 蓝色边框绘制 |
-| DEV-029 | ui/region_select_widget.py 控制点绘制 | Todo | High | REQ-4 | 8个控制点计算与绘制 |
-| DEV-030 | ui/region_select_widget.py 控制点检测 | Todo | High | REQ-4 | 鼠标命中控制点检测 |
-| DEV-031 | ui/region_select_widget.py 光标形状更新 | Todo | High | REQ-4 | 根据位置更新光标形状 |
-| DEV-032 | ui/region_select_widget.py 鼠标按下事件 | Todo | High | REQ-4 | 创建/移动/拉伸状态切换 |
-| DEV-033 | ui/region_select_widget.py 鼠标移动事件 | Todo | High | REQ-4 | 选区创建/移动/拉伸逻辑 |
-| DEV-034 | ui/region_select_widget.py 鼠标释放事件 | Todo | High | REQ-4 | 操作完成、状态重置 |
-| DEV-035 | ui/region_select_widget.py 窗口大小变化事件 | Todo | High | REQ-4 | 重新计算缩放因子、调整选区 |
-| DEV-036 | ui/region_select_widget.py 信号定义与节流 | Todo | High | REQ-4 | selectionChanged 信号、50ms 节流 |
-| DEV-037 | ui/region_select.py 主界面逻辑集成 | Todo | High | REQ-4 | 截图调用、信息更新、配置保存 |
+| DEV-021 | core/window_capture.py 窗口截图服务 | Done | High | REQ-4 | 使用 hwnd 获取窗口截图的公共工具，支持定时截图 |
+| DEV-022 | ui/region_select.py 主界面框架 | Done | High | REQ-4 | 区域选择界面布局、按钮、标签 |
+| DEV-023 | ui/region_select_widget.py 基础结构 | Done | High | REQ-4 | RegionSelectWidget 初始化、数据结构 |
+| DEV-024 | ui/region_select_widget.py 图片展示与缩放 | Done | High | REQ-4 | 加载图片、缩放适配、居中显示 |
+| DEV-025 | ui/region_select_widget.py 坐标转换系统 | Done | High | REQ-4 | 控件/显示/原始/比例坐标转换 |
+| DEV-026 | ui/region_select_widget.py 边界约束函数 | Done | High | REQ-4 | constrain_rect 边界与最小尺寸约束 |
+| DEV-027 | ui/region_select_widget.py 遮罩层绘制 | Done | High | REQ-4 | 半透明遮罩、亮色选区绘制 |
+| DEV-028 | ui/region_select_widget.py 选区边框绘制 | Done | High | REQ-4 | 2px 蓝色边框绘制 |
+| DEV-029 | ui/region_select_widget.py 控制点绘制 | Done | High | REQ-4 | 8个控制点计算与绘制 |
+| DEV-030 | ui/region_select_widget.py 控制点检测 | Done | High | REQ-4 | 鼠标命中控制点检测 |
+| DEV-031 | ui/region_select_widget.py 光标形状更新 | Done | High | REQ-4 | 根据位置更新光标形状 |
+| DEV-032 | ui/region_select_widget.py 鼠标按下事件 | Done | High | REQ-4 | 移动/拉伸状态切换 |
+| DEV-033 | ui/region_select_widget.py 鼠标移动事件 | Done | High | REQ-4 | 选区移动/拉伸逻辑 |
+| DEV-034 | ui/region_select_widget.py 鼠标释放事件 | Done | High | REQ-4 | 操作完成、状态重置 |
+| DEV-035 | ui/region_select_widget.py 窗口大小变化事件 | Done | High | REQ-4 | 重新计算缩放因子、调整选区 |
+| DEV-036 | ui/region_select_widget.py 信号定义与节流 | Done | High | REQ-4 | selectionChanged 信号、50ms 节流 |
+| DEV-037 | ui/region_select.py 主界面逻辑集成 | Done | High | REQ-4 | 截图调用、信息更新、配置保存 |
 
 ---
 
@@ -87,9 +87,9 @@
 
 | 类别 | Total | Todo | In Progress | Done |
 |------|-------|------|-------------|------|
-| 需求文档 | 7 | 6 | 1 | 0 |
+| 需求文档 | 7 | 4 | 3 | 0 |
 | 架构设计文档 | 9 | 1 | 0 | 8 |
-| 开发任务 | 37 | 23 | 2 | 12 |
+| 开发任务 | 37 | 15 | 2 | 20 |
 
 ---
 
