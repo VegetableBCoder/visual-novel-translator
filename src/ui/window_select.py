@@ -7,6 +7,8 @@
 - 从列表中选择目标窗口
 """
 
+import logging
+
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
                            QLabel, QPushButton, QListWidget,
                            QListWidgetItem, QGroupBox, QMessageBox)
@@ -14,6 +16,8 @@ from PyQt5.QtCore import Qt, pyqtSignal
 
 from src.controller.config_interface import IConfigManager
 from src.core.window_manager import WindowManager
+
+logger = logging.getLogger(__name__)
 
 
 class WindowSelectWidget(QWidget):
@@ -267,8 +271,17 @@ class WindowSelectWidget(QWidget):
                 "bottom": 0.85
             })
 
-        # 持久化（TODO: 暂时只保存到内存）
-        self.config_manager.save_config(self.config_manager.load_config())
+        # 持久化
+        config_data = self.config_manager.load_config()
+        self.config_manager.save_config(config_data)
+
+        # 输出完整配置到日志（JSON 格式）
+        logger.info("=" * 60)
+        logger.info("窗口选择配置已保存")
+        logger.info("=" * 60)
+        import json
+        logger.info(json.dumps(config_data, ensure_ascii=False, indent=2))
+        logger.info("=" * 60)
 
         # 发送下一步信号
         self.next_signal.emit()

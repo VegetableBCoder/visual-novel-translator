@@ -10,6 +10,7 @@
 点击"暂停翻译"可暂停后台任务并解锁界面。
 """
 
+import logging
 from enum import Enum
 from typing import Optional
 
@@ -20,6 +21,8 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QColor, QFont
 from PyQt5.QtGui import QFontDatabase
+
+logger = logging.getLogger(__name__)
 
 from src.controller.config_interface import IConfigManager
 
@@ -125,7 +128,7 @@ class RunConfigWidget(QWidget):
         # OCR截图间隔
         interval_layout = self._create_slider_spinbox_pair(
             label="OCR截图间隔",
-            min_val=100,
+            min_val=1000,
             max_val=10000,
             default_val=1000,
             step=100,
@@ -310,6 +313,7 @@ class RunConfigWidget(QWidget):
         slider.setMaximum(max_val)
         slider.setValue(default_val)
         slider.setSingleStep(step)
+        slider.setPageStep(step)  # 确保点击进度条时也按 step 的整数倍变动
         row_layout.addWidget(slider)
 
         row_layout.addStretch()
@@ -360,38 +364,18 @@ class RunConfigWidget(QWidget):
             spinbox: QSpinBox 控件
             slider: QSlider 控件
         """
-        # SpinBox值变化时更新滑块位置
-        spinbox.valueChanged.connect(lambda val: self._on_spinbox_changed(spinbox, slider, val))
-        # 滑块移动时更新SpinBox值
-        slider.sliderMoved.connect(lambda val: self._on_slider_moved(spinbox, slider, val))
+        # 获取步进值（spinbox 和 slider 应该使用相同的步进值）
+        step = spinbox.singleStep()
 
-    def _on_spinbox_changed(self, spinbox: QSpinBox, slider: QSlider, value: int):
-        """
-        SpinBox值变化处理
+        # SpinBox值变化时更新滑块（确保按步进值整数倍）
+        spinbox.valueChanged.connect(
+            lambda val: slider.setValue(val if val % step == 0 else (val // step) * step)
+        )
 
-        Args:
-            spinbox: QSpinBox 控件
-            slider: QSlider 控件
-            value: 新值
-        """
-        # 使用 blockSignals 阻止信号循环
-        slider.blockSignals(True)
-        slider.setValue(value)
-        slider.blockSignals(False)
-
-    def _on_slider_moved(self, spinbox: QSpinBox, slider: QSlider, value: int):
-        """
-        滑块移动处理
-
-        Args:
-            spinbox: QSpinBox 控件
-            slider: QSlider 控件
-            value: 新值
-        """
-        # 使用 blockSignals 阻止信号循环
-        spinbox.blockSignals(True)
-        spinbox.setValue(value)
-        spinbox.blockSignals(False)
+        # 滑块值变化时更新SpinBox（确保按步进值整数倍）
+        slider.valueChanged.connect(
+            lambda val: spinbox.setValue(val if val % step == 0 else (val // step) * step)
+        )
 
     def _load_config(self):
         """从配置管理器加载配置到界面"""
@@ -420,23 +404,40 @@ class RunConfigWidget(QWidget):
     def _save_config(self):
         """从界面保存配置到配置管理器"""
         # OCR参数
-        self.config_manager.set("ocr.interval_ms", self.interval_spinbox.value())
-        self.config_manager.set("ocr.image_threshold", self.image_threshold_spinbox.value())
+        interval_ms = self.interval_spinbox.value()
+        image_threshold = self.image_threshold_spinbox.value()
+        self.config_manager.set("ocr.interval_ms", interval_ms)
+        self.config_manager.set("ocr.image_threshold", image_threshold)
 
         # 文本处理参数
-        self.config_manager.set("ocr.text_threshold", self.text_threshold_spinbox.value())
+        text_threshold = self.text_threshold_spinbox.value()
+        self.config_manager.set("ocr.text_threshold", text_threshold)
 
         # 显示参数
-        self.config_manager.set("display.font_family", self.font_combo.currentText())
-        self.config_manager.set("display.font_size", self.font_size_spinbox.value())
-        self.config_manager.set("display.font_color", self.current_color.name())
-        self.config_manager.set("display.bg_opacity", self.opacity_spinbox.value())
+        font_family = self.font_combo.currentText()
+        font_size = self.font_size_spinbox.value()
+        font_color = self.current_color.name()
+        bg_opacity = self.opacity_spinbox.value()
 
-        # 持久化
-        self.config_manager.save_config(self.config_manager.load_config())
+        self.config_manager.set("display.font_family", font_family)
+        self.config_manager.set("display.font_size", font_size)
+        self.config_manager.set("display.font_color", font_color)
+        self.config_manager.set("display.bg_opacity", bg_opacity)
+
+        # 持久化到文件
+        config_data = self.config_manager.load_config()
+        self.config_manager.save_config(config_data)
 
         # 预留：更新截图间隔（为后续调度器做兼容）
-        self._capture_interval_ms = self.interval_spinbox.value()
+        self._capture_interval_ms = interval_ms
+
+        # 输出完整配置到日志（JSON 格式）
+        logger.info("=" * 60)
+        logger.info("配置已保存")
+        logger.info("=" * 60)
+        import json
+        logger.info(json.dumps(config_data, ensure_ascii=False, indent=2))
+        logger.info("=" * 60)
 
     def _on_color_button_clicked(self):
         """颜色按钮点击处理"""
@@ -470,6 +471,8 @@ class RunConfigWidget(QWidget):
 
     def _start_translation(self):
         """开始翻译"""
+        logger.info("开始翻译...")
+
         # 先保存配置
         self._save_config()
 
@@ -480,23 +483,24 @@ class RunConfigWidget(QWidget):
                 # 后续实现时，调度器需要实现启动截图线程和OCR/翻译线程
                 if hasattr(self.scheduler, 'start'):
                     self.scheduler.start()
-                    print("[运行参数] 调度器已启动")
+                    logger.info("调度器已启动")
             except Exception as e:
+                logger.error(f"启动翻译服务失败：{str(e)}")
                 QMessageBox.warning(self, "启动失败", f"启动翻译服务失败：{str(e)}")
                 return
         else:
             # 调度器尚未实现，打印日志作为占位
-            print(f"[运行参数] 启动翻译（调度器尚未实现，截图间隔: {self._capture_interval_ms}ms）")
+            logger.info(f"调度器尚未实现，截图间隔: {self._capture_interval_ms}ms")
 
         # 预留：创建/显示悬浮窗
         if self.floating_window is not None:
             try:
                 self.floating_window.show()
-                print("[运行参数] 悬浮窗已显示")
+                logger.info("悬浮窗已显示")
             except Exception as e:
-                print(f"[运行参数] 显示悬浮窗失败：{e}")
+                logger.error(f"显示悬浮窗失败：{e}")
         else:
-            print("[运行参数] 显示悬浮窗（悬浮窗尚未实现）")
+            logger.info("悬浮窗尚未实现")
 
         # 发送信号通知主窗口（主窗口可能需要执行其他操作）
         self.start_signal.emit()
@@ -506,6 +510,8 @@ class RunConfigWidget(QWidget):
 
     def _pause_translation(self):
         """暂停翻译"""
+        logger.info("暂停翻译...")
+
         # 预留：暂停调度器
         if self.scheduler is not None:
             try:
@@ -513,13 +519,14 @@ class RunConfigWidget(QWidget):
                 # 后续实现时，调度器需要实现暂停截图循环和OCR/翻译处理
                 if hasattr(self.scheduler, 'pause'):
                     self.scheduler.pause()
-                    print("[运行参数] 调度器已暂停")
+                    logger.info("调度器已暂停")
             except Exception as e:
+                logger.error(f"暂停翻译服务失败：{str(e)}")
                 QMessageBox.warning(self, "暂停失败", f"暂停翻译服务失败：{str(e)}")
                 return
         else:
             # 调度器尚未实现
-            print("[运行参数] 暂停翻译（调度器尚未实现）")
+            logger.info("调度器尚未实现，暂停翻译")
 
         # 发送信号通知主窗口
         self.pause_signal.emit()
@@ -529,6 +536,8 @@ class RunConfigWidget(QWidget):
 
     def _resume_translation(self):
         """恢复翻译"""
+        logger.info("恢复翻译...")
+
         # 预留：恢复调度器
         if self.scheduler is not None:
             try:
@@ -536,13 +545,14 @@ class RunConfigWidget(QWidget):
                 # 后续实现时，调度器需要实现恢复截图循环和OCR/翻译处理
                 if hasattr(self.scheduler, 'resume'):
                     self.scheduler.resume()
-                    print("[运行参数] 调度器已恢复")
+                    logger.info("调度器已恢复")
             except Exception as e:
+                logger.error(f"恢复翻译服务失败：{str(e)}")
                 QMessageBox.warning(self, "恢复失败", f"恢复翻译服务失败：{str(e)}")
                 return
         else:
             # 调度器尚未实现
-            print("[运行参数] 恢复翻译（调度器尚未实现）")
+            logger.info("调度器尚未实现，恢复翻译")
 
         # 发送信号通知主窗口
         self.resume_signal.emit()
@@ -648,7 +658,7 @@ class RunConfigWidget(QWidget):
             scheduler: 任务调度器实例
         """
         self.scheduler = scheduler
-        print(f"[运行参数] 调度器已设置: {type(scheduler).__name__}")
+        logger.info(f"调度器已设置: {type(scheduler).__name__}")
 
     def set_floating_window(self, floating_window):
         """
@@ -658,7 +668,7 @@ class RunConfigWidget(QWidget):
             floating_window: 悬浮窗实例
         """
         self.floating_window = floating_window
-        print(f"[运行参数] 悬浮窗已设置: {type(floating_window).__name__}")
+        logger.info(f"悬浮窗已设置: {type(floating_window).__name__}")
 
     def force_pause(self):
         """
@@ -675,15 +685,17 @@ class RunConfigWidget(QWidget):
 
         这个方法用于从外部强制停止翻译，并重置状态为空闲
         """
+        logger.info("强制停止翻译...")
+
         if self._current_state == RunState.RUNNING or self._current_state == RunState.PAUSED:
             # 预留：停止调度器
             if self.scheduler is not None:
                 try:
                     if hasattr(self.scheduler, 'stop'):
                         self.scheduler.stop()
-                        print("[运行参数] 调度器已停止")
+                        logger.info("调度器已停止")
                 except Exception as e:
-                    print(f"[运行参数] 停止调度器失败：{e}")
+                    logger.error(f"停止调度器失败：{e}")
 
             # 隐藏悬浮窗
             if self.floating_window is not None:

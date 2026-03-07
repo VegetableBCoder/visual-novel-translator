@@ -7,6 +7,7 @@
 - 支持重新截屏
 - 保存选区相对位置信息
 """
+import logging
 import uuid
 
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
@@ -16,6 +17,8 @@ from PyQt5.QtGui import QPixmap, QImage
 
 from src.controller.config_interface import IConfigManager
 from src.core.window_capture import capture_window
+
+logger = logging.getLogger(__name__)
 
 
 class RegionSelectWidget(QWidget):
@@ -979,7 +982,16 @@ class RegionSelectWidgetWrapper(QWidget):
         self.config_manager.set("window.region", ratio)
 
         # 持久化
-        self.config_manager.save_config(self.config_manager.load_config())
+        config_data = self.config_manager.load_config()
+        self.config_manager.save_config(config_data)
+
+        # 输出完整配置到日志（JSON 格式）
+        logger.info("=" * 60)
+        logger.info("区域选择配置已保存")
+        logger.info("=" * 60)
+        import json
+        logger.info(json.dumps(config_data, ensure_ascii=False, indent=2))
+        logger.info("=" * 60)
 
         # 发送下一步信号
         self.next_signal.emit()

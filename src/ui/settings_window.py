@@ -1,12 +1,14 @@
 """
 翻译设置界面
 
-软件启动后的第一个界面，用于配置翻译参数：
+软件启动后的第一个界面，用于配置了翻译参数：
 - 源语言选择（日语/英语）
 - 翻译引擎选择（阿里云/Google）
 - API 密钥配置
 - 密钥验证功能
 """
+
+import logging
 
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
                            QLabel, QComboBox, QRadioButton,
@@ -15,6 +17,8 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
 from PyQt5.QtCore import Qt, pyqtSignal
 
 from src.controller.config_interface import IConfigManager
+
+logger = logging.getLogger(__name__)
 
 
 class TranslationSettingsWidget(QWidget):
@@ -255,8 +259,17 @@ class TranslationSettingsWidget(QWidget):
         self.config_manager.set("translation.google.api_key",
                             self.google_key_edit.text())
 
-        # 持久化（TODO: 暂时只保存到内存）
-        self.config_manager.save_config(self.config_manager.load_config())
+        # 持久化
+        config_data = self.config_manager.load_config()
+        self.config_manager.save_config(config_data)
+
+        # 输出完整配置到日志（JSON 格式）
+        logger.info("=" * 60)
+        logger.info("翻译设置配置已保存")
+        logger.info("=" * 60)
+        import json
+        logger.info(json.dumps(config_data, ensure_ascii=False, indent=2))
+        logger.info("=" * 60)
 
     def _on_engine_changed(self, button):
         """引擎切换处理"""
