@@ -120,6 +120,85 @@ class RegionSelectWidget(QWidget):
 
         self.selection_rect = QRectF(rect_x, rect_y, rect_w, rect_h)
 
+    def widget_to_display(self, widget_pos):
+        """
+        将控件坐标转换为图片显示区域坐标
+
+        Args:
+            widget_pos: QPointF 控件坐标
+
+        Returns:
+            QPointF: 图片显示区域坐标
+        """
+        from PyQt5.QtCore import QPointF
+        return widget_pos - self.pixmap_rect.topLeft()
+
+    def display_to_original(self, display_pos):
+        """
+        将图片显示区域坐标转换为原始图片坐标
+
+        Args:
+            display_pos: QPointF 图片显示区域坐标
+
+        Returns:
+            QPointF: 原始图片坐标
+        """
+        from PyQt5.QtCore import QPointF
+        return QPointF(display_pos.x() / self.current_scale, display_pos.y() / self.current_scale)
+
+    def original_to_relative(self, original_rect):
+        """
+        将原始图片坐标矩形转换为相对比例坐标（0-1）
+
+        Args:
+            original_rect: QRectF 原始图片坐标矩形
+
+        Returns:
+            dict: {"left": float, "top": float, "right": float, "bottom": float}
+        """
+        orig_w, orig_h = self.original_size
+        return {
+            "left": original_rect.left() / orig_w,
+            "top": original_rect.top() / orig_h,
+            "right": original_rect.right() / orig_w,
+            "bottom": original_rect.bottom() / orig_h
+        }
+
+    def constrain_rect(self, rect):
+        """
+        约束矩形在图片区域内且不小于最小尺寸
+
+        Args:
+            rect: QRectF 待约束的矩形
+
+        Returns:
+            QRectF: 约束后的矩形
+        """
+        from PyQt5.QtCore import QRectF
+
+        # 约束边界
+        from PyQt5.QtCore import QPointF
+        rect.setLeft(max(rect.left(), 0))
+        rect.setTop(max(rect.top(), 0))
+        rect.setRight(min(rect.right(), self.pixmap_rect.width()))
+        rect.setBottom(min(rect.bottom(), self.pixmap_rect.height()))
+
+        # 约束最小尺寸（在边界约束后的基础上）
+        min_size = self.min_selection_size
+        if rect.width() < min_size:
+            if rect.left() == 0:
+                rect.setRight(min_size)
+            else:
+                rect.setLeft(rect.right() - min_size)
+
+        if rect.height() < min_size:
+            if rect.top() == 0:
+                rect.setBottom(min_size)
+            else:
+                rect.setTop(rect.bottom() - min_size)
+
+        return rect
+
     def get_selection_ratio(self):
         """
         获取当前选区的相对比例坐标 (0-1)
@@ -127,27 +206,384 @@ class RegionSelectWidget(QWidget):
         Returns:
             dict: {"left": float, "top": float, "right": float, "bottom": float}
         """
-        # TODO: 实现坐标转换逻辑
+        if self.selection_rect is None:
+            return None
+
+        # 将图片显示坐标转换为原始图片坐标
+        orig_rect = self.selection_rect / self.current_scale
+
+        # 转换为相对比例坐标
+        return self.original_to_relative(orig_rect)
+
+    def get_selection_pixel_size(self):
+        """
+        获取当前选区的实际像素尺寸（原始图片坐标）
+
+        Returns:
+            dict: {"width": int, "height": int} 或 None
+        """
         if self.selection_rect is None:
             return None
 
         return {
-            "left": 0.25,
-            "top": 0.70,
-            "right": 0.75,
-            "bottom": 0.85
+            "width": int(self.selection_rect.width() / self.current_scale),
+            "height": int(self.selection_rect.height() / self.current_scale)
         }
 
     def _emit_selection_changed(self):
         """发射选区变化信号"""
         self.selectionChanged.emit()
 
-    # TODO: 以下方法需要实现选区绘制、坐标转换、鼠标事件处理等
+    # 控制点相关方法
+
+    def get_handle_rects(self):
+        """
+        计算所有控制点的矩形区域（图片显示坐标）
+
+        Returns:
+            dict: 键为控制点名称，值为 QRectF
+        """
+        r = self.selection_rect
+        hs = self.handle_size
+        from PyQt5.QtCore import QRectF
+        return {
+            'topleft': QRectF(r.left() - hs/2, r.top() - hs/2, hs, hs),
+            'top': QRectF(r.center().x() - hs/2, r.top() - hs/2, hs, hs),
+            'topright': QRectF(r.right() - hs/2, r.top() - hs/2, hs, hs),
+            'left': QRectF(r.left() - hs/2, r.center().y() - hs/2, hs, hs),
+            'right': QRectF(r.right() - hs/2, r.center().y() - hs/2, hs, hs),
+            'bottomleft': QRectF(r.left() - hs/2, r.bottom() - hs/2, hs, hs),
+            'bottom': QRectF(r.center().x() - hs/2, r.bottom() - hs/2, hs, hs),
+            'bottomright': QRectF(r.right() - hs/2, r.bottom() - hs/2, hs, hs)
+        }
+
+    def _get_handle_at_pos(self, display_pos):
+        """
+        根据鼠标位置判断命中的控制点
+
+        Args:
+            display_pos: QPointF 图片显示区域坐标
+
+        Returns:
+            str: 控制点名称，未命中返回 None
+        """
+        handles = self.get_handle_rects()
+        for name, rect in handles.items():
+            if rect.contains(display_pos):
+                return name
+        return None
+
+    def _get_cursor_for_handle(self, handle):
+        """
+        根据控制点获取对应对应的光标形状
+
+        Args:
+            handle: str 控制点名称
+
+        Returns:
+            Qt.CursorShape: 光标形状
+        """
+        if handle in ('topleft', 'bottomright'):
+            return Qt.SizeFDiagCursor
+        elif handle in ('topright', 'bottomleft'):
+            return Qt.SizeBDiagCursor
+        elif handle in ('left', 'right'):
+            return Qt.SizeHorCursor
+        elif handle in ('top', 'bottom'):
+            return Qt.SizeVerCursor
+        else:
+            return Qt.ArrowCursor
+
+    # 绘制相关方法
+
+    def _draw_mask(self, painter):
+        """
+        绘制半透明遮罩层（选区外部区域）
+
+        Args:
+            painter: QPainter 绘制对象
+        """
+        from PyQt5.QtGui import QColor, QBrush
+        from PyQt5.QtCore import QRectF
+
+        # 遮罩颜色：半透明黑色（60%透明度）
+        mask_color = QColor(0, 0, 0, 153)
+        mask_brush = QBrush(mask_color)
+
+        # 获取图片显示区域和选区
+        pixmap_rect = self.pixmap_rect
+        sel_rect = self.selection_rect
+
+        # 绘制四个外围区域的遮罩
+        # 上方
+        top_rect = QRectF(
+            pixmap_rect.left(),
+            pixmap_rect.top(),
+            pixmap_rect.width(),
+            sel_rect.top()
+        )
+        painter.fillRect(top_rect, mask_brush)
+
+        # 下方
+        bottom_rect = QRectF(
+            pixmap_rect.left(),
+            sel_rect.bottom(),
+            pixmap_rect.width(),
+            pixmap_rect.bottom() - sel_rect.bottom()
+        )
+        painter.fillRect(bottom_rect, mask_brush)
+
+        # 左方
+        left_rect = QRectF(
+            pixmap_rect.left(),
+            sel_rect.top(),
+            sel_rect.left(),
+            sel_rect.height()
+        )
+        painter.fillRect(left_rect, mask_brush)
+
+        # 右方
+        right_rect = QRectF(
+            sel_rect.right(),
+            sel_rect.top(),
+            pixmap_rect.right() - sel_rect.right(),
+            sel_rect.height()
+        )
+        painter.fillRect(right_rect, mask_brush)
+
+    def _draw_selection_border(self, painter):
+        """
+        绘制选区边框（2px 亮蓝色）
+
+        Args:
+            painter: QPainter 绘制对象
+        """
+        from PyQt5.QtGui import QPen, QColor
+
+        # 选区边框颜色：亮蓝色
+        border_color = QColor(0, 120, 215)
+        border_pen = QPen(border_color, 2)
+        painter.setPen(border_pen)
+        painter.setBrush(Qt.NoBrush)
+        painter.drawRect(self.selection_rect)
+
+    def _draw_handles(self, painter):
+        """
+        绘制8个控制点
+
+        Args:
+            painter: QPainter 绘制对象
+        """
+        from PyQt5.QtGui import QPen, QColor, QBrush
+
+        # 控制点样式
+        handle_brush = QBrush(QColor(255, 255, 255))  # 白色填充
+        border_color = QColor(0, 120, 215)  # 蓝色边框
+
+        handles = self.get_handle_rects()
+        for name, rect in handles.items():
+            # 悬停时高亮
+            if name == self.hovered_handle:
+                border_pen = QPen(border_color, 3)
+            else:
+                border_pen = QPen(border_color, 1)
+
+            painter.setPen(border_pen)
+            painter.setBrush(handle_brush)
+            painter.drawRect(rect)
+
+    # 鼠标事件处理方法
+
+    def mousePressEvent(self, event):
+        """鼠标按下事件"""
+        if event.button() != Qt.LeftButton:
+            super().mousePressEvent(event)
+            return
+
+        # 检查是否在图片显示区域内
+        if self.pixmap_rect is None:
+            super().mousePressEvent(event)
+            return
+
+        from PyQt5.QtCore import QPointF
+        pos = QPointF(event.pos())
+
+        if not self.pixmap_rect.contains(pos):
+            super().mousePressEvent(event)
+            return
+
+        # 转换为图片显示坐标
+        display_pos = self.widget_to_display(pos)
+
+        # 按优先级判断操作类型
+        # 1. 检查是否命中控制点
+        handle = self._get_handle_at_pos(display_pos)
+        if handle:
+            self.mode = 'resizing'
+            self.resize_direction = handle
+            self.drag_start_pos = display_pos
+            self.original_rect = self.selection_rect.normalized()
+            event.accept()
+            return
+
+        # 2. 检查是否在选区内部
+        if self.selection_rect and self.selection_rect.contains(display_pos):
+            self.mode = 'moving'
+            self.drag_start_pos = display_pos
+            self.original_rect = self.selection_rect.normalized()
+            event.accept()
+            return
+
+        # 3. 在遮罩区域，创建新选区
+        self.mode = 'creating'
+        self.drag_start_pos = display_pos
+        self.original_rect = None
+        # 创建极小的初始矩形
+        from PyQt5.QtCore import QRectF
+        self.selection_rect = QRectF(display_pos, display_pos)
+        event.accept()
+
+    def mouseMoveEvent(self, event):
+        """鼠标移动事件"""
+        from PyQt5.QtCore import QPointF
+        pos = QPointF(event.pos())
+        display_pos = self.widget_to_display(pos)
+
+        # 处理不同的操作模式
+        if self.mode == 'creating':
+            self._update_creating_selection(display_pos)
+        elif self.mode == 'moving':
+            self._update_moving_selection(display_pos)
+        elif self.mode == 'resizing':
+            self._update_resizing_selection(display_pos)
+        else:
+            # none 模式：更新光标形状
+            self._update_cursor(display_pos)
+
+    def _update_creating_selection(self, display_pos):
+        """更新创建中的选区"""
+        from PyQt5.QtCore import QRectF, QPointF
+
+        # 计算新矩形（从起始点到当前点）
+        new_rect = QRectF(self.drag_start_pos, display_pos).normalized()
+
+        # 约束边界
+        new_rect = self._constrain_to_pixmap(new_rect)
+
+        # 应用约束
+        self.selection_rect = self.constrain_rect(new_rect)
+
+        # 触发重绘和信号
+        self.update()
+        self._signal_timer.start(50)
+
+    def _update_moving_selection(self, display_pos):
+        """更新移动中的选区"""
+        # 计算偏移量
+        delta = display_pos - self.drag_start_pos
+
+        # 计算新位置
+        new_left = self.original_rect.left() + delta.x()
+        new_top = self.original_rect.top() + delta.y()
+        new_right = self.original_rect.right() + delta.x()
+        new_bottom = self.original_rect.bottom() + delta.y()
+
+        from PyQt5.QtCore import QRectF
+        new_rect = QRectF(new_left, new_top, new_right - new_left, new_bottom - new_top)
+
+        # 约束边界
+        new_rect = self._constrain_to_pixmap(new_rect)
+
+        self.selection_rect = new_rect
+
+        # 触发重绘和信号
+        self.update()
+        self._signal_timer.start(50)
+
+    def _update_resizing_selection(self, display_pos):
+        """更新拉伸中的选区"""
+        from PyQt5.QtCore import QRectF
+
+        # 复制原始矩形
+        new_rect = QRectF(self.original_rect)
+        direction = self.resize_direction
+
+        # 根据拉伸方向调整对应边界
+        if 'left' in direction:
+            new_rect.setLeft(display_pos.x())
+        if 'right' in direction:
+            new_rect.setRight(display_pos.x())
+        if 'top' in direction:
+            new_rect.setTop(display_pos.y())
+        if 'bottom' in direction:
+            new_rect.setBottom(display_pos.y())
+
+        # 约束边界和最小尺寸
+        new_rect = self.constrain_rect(new_rect)
+
+        self.selection_rect = new_rect
+
+        # 触发重绘和信号
+        self.update()
+        self._signal_timer.start(50)
+
+    def _constrain_to_pixmap(self, rect):
+        """约束矩形在图片区域内"""
+        from PyQt5.QtCore import QRectF
+
+        # 约束到图片显示区域内
+        left = max(rect.left(), 0)
+        top = max(rect.top(), 0)
+        right = min(rect.right(), self.pixmap_rect.width())
+        bottom = min(rect.bottom(), self.pixmap_rect.height())
+
+        return QRectF(left, top, right - left, bottom - top)
+
+    def _update_cursor(self, display_pos):
+        """根据鼠标位置更新光标形状"""
+        # 检查是否在图片显示区域内
+        w = self.pixmap_rect.width()
+        h = self.pixmap_rect.height()
+        if display_pos.x() < 0 or display_pos.y() < 0 or display_pos.x() > w or display_pos.y() > h:
+            self.setCursor(Qt.ArrowCursor)
+            self.hovered_handle = None
+            return
+
+        # 检查控制点
+        handle = self._get_handle_at_pos(display_pos)
+        if handle:
+            self.setCursor(self._get_cursor_for_handle(handle))
+            self.hovered_handle = handle
+            return
+
+        # 检查选区内部
+        if self.selection_rect and self.selection_rect.contains(display_pos):
+            self.setCursor(Qt.SizeAllCursor)
+            self.hovered_handle = None
+            return
+
+        # 图片其他区域
+        self.setCursor(Qt.CrossCursor)
+        self.hovered_handle = None
+
+    def mouseReleaseEvent(self, event):
+        """鼠标释放事件"""
+        if event.button() == Qt.LeftButton:
+            # 重置模式
+            self.mode = 'none'
+            self.resize_direction = None
+            self.drag_start_pos = None
+            self.original_rect = None
+
+            # 触发最终信号
+            self._signal_timer.stop()
+            self._emit_selection_changed()
+
+        super().mouseReleaseEvent(event)
 
     def paintEvent(self, event):
         """绘制事件"""
-        from PyQt5.QtGui import QPainter, QColor, QPen, QBrush, QFont
-        from PyQt5.QtCore import QRectF, QPointF
+        from PyQt5.QtGui import QPainter, QColor
 
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
@@ -159,18 +595,44 @@ class RegionSelectWidget(QWidget):
         if self.scaled_pixmap and self.pixmap_rect:
             painter.drawPixmap(self.pixmap_rect.toRect(), self.scaled_pixmap)
 
-            # TODO: 3. 绘制遮罩层（半透明黑色）
-            # TODO: 4. 绘制选区边框（2px 亮蓝色）
-            # TODO: 5. 绘制 8 个控制点
+            # 3. 绘制遮罩层（半透明黑色）
+            if self.selection_rect:
+                self._draw_mask(painter)
+
+            # 4. 绘制选区边框（2px 亮蓝色）
+            self._draw_selection_border(painter)
+
+            # 5. 绘制 8 个控制点
+            self._draw_handles(painter)
 
         painter.end()
 
     def resizeEvent(self, event):
         """窗口大小变化事件"""
         super().resizeEvent(event)
-        if self.original_pixmap:
+        if self.original_pixmap and self.selection_rect:
+            # 保存选区的相对比例
+            ratio_before = self.get_selection_ratio()
+
+            # 更新缩放
             self._update_scale()
-            # TODO: 重新计算选区位置
+
+            # 根据比例恢复选区位置
+            if ratio_before:
+                orig_w, orig_h = self.original_size
+                new_left = ratio_before['left'] * orig_w * self.current_scale
+                new_top = ratio_before['top'] * orig_h * self.current_scale
+                new_right = ratio_before['right'] * orig_w * self.current_scale
+                new_bottom = ratio_before['bottom'] * orig_h * self.current_scale
+
+                from PyQt5.QtCore import QRectF
+                self.selection_rect = QRectF(
+                    new_left, new_top,
+                    new_right - new_left,
+                    new_bottom - new_top
+                )
+
+            self.update()
 
     def mousePressEvent(self, event):
         """鼠标按下事件"""
@@ -401,18 +863,21 @@ class RegionSelectWidgetWrapper(QWidget):
 
     def _update_selection_info(self):
         """更新选区信息显示"""
-        # TODO: 从 region_widget 获取选区信息并更新标签
+        # 获取选区相对比例
         ratio = self.region_widget.get_selection_ratio()
+        # 获取选区像素尺寸
+        pixel_size = self.region_widget.get_selection_pixel_size()
 
-        if ratio:
+        if ratio and pixel_size:
             self.selection_position_label.setText(
                 f"相对位置: 左:{ratio['left']:.1%} "
                 f"上:{ratio['top']:.1%} "
                 f"右:{ratio['right']:.1%} "
                 f"下:{ratio['bottom']:.1%}"
             )
-            # TODO: 计算实际像素尺寸
-            self.selection_size_label.setText("选区尺寸: - x - px")
+            self.selection_size_label.setText(
+                f"选区尺寸: {pixel_size['width']} x {pixel_size['height']} px"
+            )
         else:
             self.selection_size_label.setText("选区尺寸: - x - px")
             self.selection_position_label.setText("相对位置: -")
