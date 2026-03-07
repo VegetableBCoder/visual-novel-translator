@@ -1,0 +1,23 @@
+# 视觉小说翻译器依赖清单
+
+# GUI 框架
+PyQt5>=5.15.0
+
+# 窗口操作
+pywin32>=305
+
+# OCR 引擎
+paddleocr>=2.7.0
+
+# 图像处理
+Pillow>=10.0.0
+imagehash>=4.3.0
+
+# 文本去重
+python-Levenshtein>=0.20.0
+
+# HTTP 请求
+requests>=2.31.0
+
+# 其他可选依赖
+# numpy>=1.24.0  # 图像处理可选加速
