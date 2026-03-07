@@ -26,7 +26,6 @@ logger = logging.getLogger(__name__)
 
 from src.controller.config_interface import IConfigManager
 
-
 class RunState(Enum):
     """运行状态枚举"""
     IDLE = "idle"       # 空闲状态
@@ -379,27 +378,25 @@ class RunConfigWidget(QWidget):
 
     def _load_config(self):
         """从配置管理器加载配置到界面"""
-        config = self.config_manager.load_config()
-
         # 加载OCR参数
-        self.interval_spinbox.setValue(config.get("ocr.interval_ms", 1000))
-        self.image_threshold_spinbox.setValue(config.get("ocr.image_threshold", 10))
+        self.interval_spinbox.setValue(self.config_manager.get("ocr.interval_ms", 1000))
+        self.image_threshold_spinbox.setValue(self.config_manager.get("ocr.image_threshold", 10))
 
         # 加载文本处理参数
-        self.text_threshold_spinbox.setValue(config.get("ocr.text_threshold", 75))
+        self.text_threshold_spinbox.setValue(self.config_manager.get("ocr.text_threshold", 75))
 
         # 加载显示参数
-        font_family = config.get("display.font_family", "微软雅黑")
+        font_family = self.config_manager.get("display.font_family", "微软雅黑")
         if self.font_combo.findText(font_family) >= 0:
             self.font_combo.setCurrentText(font_family)
 
-        self.font_size_spinbox.setValue(config.get("display.font_size", 16))
+        self.font_size_spinbox.setValue(self.config_manager.get("display.font_size", 16))
 
-        color_hex = config.get("display.font_color", "#FFFFFF")
+        color_hex = self.config_manager.get("display.font_color", "#FFFFFF")
         self.current_color = QColor(color_hex)
         self._update_color_button()
 
-        self.opacity_spinbox.setValue(config.get("display.bg_opacity", 40))
+        self.opacity_spinbox.setValue(self.config_manager.get("display.bg_opacity", 40))
 
     def _save_config(self):
         """从界面保存配置到配置管理器"""
@@ -479,8 +476,13 @@ class RunConfigWidget(QWidget):
         # 预留：启动调度器
         if self.scheduler is not None:
             try:
-                # 这里假设调度器有 start() 方法
-                # 后续实现时，调度器需要实现启动截图线程和OCR/翻译线程
+                # 传递配置快照给调度器
+                config = self.config_manager.load_config()
+                if hasattr(self.scheduler, 'set_config_snapshot'):
+                    self.scheduler.set_config_snapshot(config)
+                    logger.info("配置快照已传递给调度器")
+
+                # 启动调度器
                 if hasattr(self.scheduler, 'start'):
                     self.scheduler.start()
                     logger.info("调度器已启动")
@@ -541,6 +543,12 @@ class RunConfigWidget(QWidget):
         # 预留：恢复调度器
         if self.scheduler is not None:
             try:
+                # 传递配置快照给调度器
+                config = self.config_manager.load_config()
+                if hasattr(self.scheduler, 'set_config_snapshot'):
+                    self.scheduler.set_config_snapshot(config)
+                    logger.info("配置快照已传递给调度器")
+
                 # 这里假设调度器有 resume() 方法
                 # 后续实现时，调度器需要实现恢复截图循环和OCR/翻译处理
                 if hasattr(self.scheduler, 'resume'):
@@ -662,7 +670,7 @@ class RunConfigWidget(QWidget):
 
     def set_floating_window(self, floating_window):
         """
-        设置悬浮窗实例（（用于后续集成）
+        设置悬浮窗实例（用于后续集成）
 
         Args:
             floating_window: 悬浮窗实例

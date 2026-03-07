@@ -223,23 +223,21 @@ class TranslationSettingsWidget(QWidget):
 
     def _load_config(self):
         """加载配置到界面"""
-        config = self.config_manager.load_config()
-
         # 加载源语言
-        source = config.get("language.source", "ja")
+        source = self.config_manager.get("language.source", "ja")
         self.source_lang_combo.setCurrentIndex(0 if source == "ja" else 1)
 
         # 加载引擎选择
-        engine = config.get("translation.engine", "alibaba")
+        engine = self.config_manager.get("translation.engine", "alibaba")
         if engine == "google":
             self.google_radio.setChecked(True)
         else:
             self.alibaba_radio.setChecked(True)
 
         # 加载密钥
-        self.alibaba_id_edit.setText(config.get("translation.alibaba.access_key_id", ""))
-        self.alibaba_secret_edit.setText(config.get("translation.alibaba.access_key_secret", ""))
-        self.google_key_edit.setText(config.get("translation.google.api_key", ""))
+        self.alibaba_id_edit.setText(self.config_manager.get("translation.alibaba.access_key_id", ""))
+        self.alibaba_secret_edit.setText(self.config_manager.get("translation.alibaba.access_key_secret", ""))
+        self.google_key_edit.setText(self.config_manager.get("translation.google.api_key", ""))
 
     def _save_config(self):
         """保存界面配置"""

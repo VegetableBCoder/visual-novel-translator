@@ -14,7 +14,12 @@ from src.ui.settings_window import TranslationSettingsWidget
 from src.ui.window_select import WindowSelectWidget
 from src.ui.region_select import RegionSelectWidgetWrapper
 from src.ui.run_config import RunConfigWidget
-
+from src.core.window_capture import WindowCapture
+from src.service.image_processor import ImageProcessor
+from src.service.scheduler import Scheduler
+from src.service.ocr_engine_placeholder import OCREngine
+from src.service.translator_placeholder import Translator
+from src.service.text_deduplicator_placeholder import TextDeduplicator
 
 # 界面索引常量
 PAGE_SETTINGS = 0  # 翻译设置界面
@@ -36,7 +41,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.config_manager = config_manager
 
-        # 预留：调度器和悬浮窗实例（为后续实现做兼容）
+        # 调度器和悬浮窗实例
         self.scheduler = None
         self.floating_window = None
 
@@ -155,28 +160,77 @@ class MainWindow(QMainWindow):
 
     def _on_run_config_start(self):
         """运行参数界面 - 开始翻译处理"""
-        # 预留：由运行参数界面触发，主窗口可以在此执行额外的初始化操作
         print("[主窗口] 收到开始翻译信号")
 
-        # 预留：后续可以在这里创建和启动调度器
-        # if self.scheduler is None:
-        #     self.scheduler = Scheduler(...)
-        #     self.run_config_page.set_scheduler(self.scheduler)
+        # 首次调用：创建调度器和依赖
+        if self.scheduler is None:
+            self._create_scheduler()
 
-        # 预留：后续可以在这里创建和显示悬浮窗
-        # if self.floating_window is None:
-        #     self.floating_window = FloatingTranslateWindow(...)
-        #     self.run_config_page.set_floating_window(self.floating_window)
+        # 传递配置快照给调度器
+        config = self.config_manager.load_config()
+        self.scheduler.set_config_snapshot(config)
+
+        # 启动调度器
+        self.scheduler.start()
 
     def _on_run_config_pause(self):
         """运行参数界面 - 暂停翻译处理"""
         print("[主窗口] 收到暂停翻译信号")
-        # 预留：由运行参数界面触发，主窗口可以在此执行额外的暂停操作
+        if self.scheduler:
+            self.scheduler.pause()
 
     def _on_run_config_resume(self):
         """运行参数界面 - 恢复翻译处理"""
         print("[主窗口] 收到恢复翻译信号")
-        # 预留：由运行参数界面触发，主窗口可以在此执行额外的恢复操作
+
+        # 传递新的配置快照给调度器
+        config = self.config_manager.load_config()
+        self.scheduler.set_config_snapshot(config)
+
+        # 恢复调度器
+        if self.scheduler:
+            self.scheduler.resume()
+
+    def _create_scheduler(self):
+        """创建调度器和所有依赖"""
+        print("[主窗口] 创建调度器...")
+
+        # 创建依赖服务实例
+        window_capture = WindowCapture()
+        image_processor = ImageProcessor()
+        ocr_engine = OCREngine()
+        translator = Translator()
+        text_deduplicator = TextDeduplicator()
+
+        # 创建调度器
+        self.scheduler = Scheduler()
+
+        # 设置依赖
+        self.scheduler.set_dependencies(
+            window_capture, image_processor, ocr_engine,
+            translator, text_deduplicator
+        )
+
+        # 连接调度器信号
+        self.scheduler.translation_result.connect(self._on_translation_result)
+        self.scheduler.error_signal.connect(self._on_error)
+
+        # 将调度器传递给运行参数界面
+        self.run_config_page.set_scheduler(self.scheduler)
+
+        print("[主窗口] 调度器创建完成")
+
+    def _on_translation_result(self, original, translated, timestamp):
+        """接收翻译结果"""
+        print(f"[主窗口] 收到翻译结果: {original} -> {translated}")
+        # TODO: 后续实现悬浮窗更新
+        if self.floating_window:
+            self.floating_window.set_translation(original, translated)
+
+    def _on_error(self, error_msg):
+        """接收错误信息"""
+        print(f"[主窗口] 收到错误: {error_msg}")
+        # TODO: 后续实现错误提示
 
     def _validate_api_keys(self) -> bool:
         """
@@ -225,6 +279,10 @@ class MainWindow(QMainWindow):
         Args:
             event: 关闭事件
         """
+        # 停止调度器
+        if self.scheduler:
+            self.scheduler.stop()
+
         # 保存配置
         config = self.config_manager.load_config()
         self.config_manager.save_config(config)
@@ -247,12 +305,11 @@ class MainWindow(QMainWindow):
 # 独立运行测试
 if __name__ == "__main__":
     import sys
-    from PyQt5.QtWidgets import QApplication
-    from src.controller.config_helper import ConfigHelper
 
     app = QApplication(sys.argv)
 
     # 创建配置管理器
+    from src.controller.config_helper import ConfigHelper
     config_manager = ConfigHelper()
 
     # 创建主窗口

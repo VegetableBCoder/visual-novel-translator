@@ -45,10 +45,10 @@
 | DEV-005 | controller/config_interface.py | Done | High | REQ-002, REQ-005 | 配置管理器接口定义 |
 | DEV-006 | controller/config_helper.py | Done | High | REQ-002, REQ-005 | 配置管理器临时实现（内存） |
 | DEV-007 | controller/state_manager.py | Todo | Medium | REQ-005 | 状态管理器 |
-| DEV-008 | controller/scheduler.py | Todo | High | REQ-4 | 任务调度器（多线程） |
+| DEV-008 | controller/scheduler.py | Done | High | REQ-4 | 任务调度器（多线程） |
 | DEV-009 | core/window_manager.py | Done | High | REQ-003 | 窗口管理器 |
-| DEV-010 | core/capture.py | Todo | High | REQ-4 | 截图服务 |
-| DEV-011 | core/image_processor.py | Todo | High | REQ-4 | 图像处理（裁剪/hash） |
+| DEV-010 | core/capture.py | Done | High | REQ-4 | 截图服务（service/capture_thread.py） |
+| DEV-011 | core/image_processor.py | Done | High | REQ-4 | 图像处理（service/image_processor.py） |
 | DEV-012 | core/ocr_engine.py | Todo | High | REQ-5 | OCR服务（PaddleOCR） |
 | DEV-013 | core/text_deduplicator.py | Todo | High | | 文本去重 |
 | DEV-014 | core/translator.py | Todo | High | REQ-6 | 翻译服务 |
@@ -87,9 +87,9 @@
 
 | 类别 | Total | Todo | In Progress | Done |
 |------|-------|------|-------------|------|
-| 需求文档 | 7 | 3 | 3 | 1 |
-| 架构设计文档 | 9 | 0 | 0 | 9 |
-| 开发任务 | 37 | 13 | 2 | 22 |
+| 需求文档 | 7 | 3 | 1 | 3 |
+| 架构设计文档 | 8 | 0 | 0 | 8 |
+| 开发任务 | 44 | 11 | 1 | 32 |
 
 ---
 
@@ -122,8 +122,8 @@
 ### 阶段2：核心服务层
 - ✅ DEV-009 窗口管理器
 - ✅ DEV-021 窗口截图服务（区域选择先依赖）
-- DEV-010 完整截图服务（含定时）
-- DEV-011 图像处理器
+- ✅ DEV-010 完整截图服务（含定时）
+- ✅ DEV-011 图像处理器
 - DEV-012 OCR引擎
 - DEV-013 文本去重器
 - DEV-014 翻译服务
@@ -138,12 +138,73 @@
 
 ### 阶段4：控制调度与集成
 - DEV-007 状态管理器
-- DEV-008 任务调度器
+- ✅ DEV-008 任务调度器
 - 集成测试
 
 ---
 
-## 七、区域选择功能任务依赖关系
+## 八、截图与线程调度开发总结
+
+### 已完成的功能
+
+| 模块 | 文件路径 | 状态 | 说明 |
+|------|----------|------|------|
+| 窗口捕获 | `src/core/window_capture.py` | ✅ Done | 使用 pywin32 实现窗口截图 |
+| 图像处理 | `src/service/image_processor.py` | ✅ Done | 区域裁剪、图像缩放、统一宽度 |
+| 截图线程 | `src/service/capture_thread.py` | ✅ Done | 定时截图、智能间隔控制、暂停/恢复/停止 |
+| 任务调度器 | `src/service/scheduler.py` | ✅ Done | 管理截图线程、OCR服务、翻译线程 |
+| OCR服务（占位） | `src/service/ocr_service_placeholder.py` | ⏳ 占位符 | 图像差分去重 + OCR识别（待实现） |
+| OCR引擎（占位） | `src/service/ocr_engine_placeholder.py` | ⏳ 占位符 | PaddleOCR集成（待实现） |
+| 翻译线程（占位） | `src/service/translation_thread_placeholder.py` | ⏳ 占位符 | 文本去重 + 翻译（待实现） |
+| 翻译服务（占位） | `src/service/translator_placeholder.py` | ⏳ 占位符 | API集成（待实现） |
+| 文本去重器（占位） | `src/service/text_deduplicator_placeholder.py` | ⏳ 占位符 | Levenshtein编辑距离（待实现） |
+
+### 数据流向
+
+```
+配置文件 (config.json)
+    ↓
+ConfigHelper (配置管理)
+    ↓
+Scheduler (任务调度器)
+    ├─→ CaptureThread (截图线程)
+    │     ↓ WindowCapture.capture_window()
+    │     ↓ ImageProcessor.crop_region()
+    │     ↓ OCRService.process_image()
+    │
+    ├─→ OCRService (OCR服务)
+    │     ↓ 图像差分去重
+    │     ↓ OCREngine.recognize()
+    │     ↓ TranslationThread.on_ocr_result()
+    │
+    └─→ TranslationThread (翻译线程)
+          ↓ TextDeduplicator.is_similar()
+          ↓ Translator.translate()
+          ↓ translation_result signal → MainWindow
+          ↓ FloatingWindow.update()
+```
+
+### 配置读取问题修复
+
+修复了以下文件中的配置读取问题（嵌套 dict 访问）：
+
+| 文件 | 修复内容 |
+|------|----------|
+| `src/service/capture_thread.py` | `config.get("window.hwnd")` → `config.get("window", {}).get("hwnd")` |
+| `src/service/translation_thread_placeholder.py` | `config.get("language.source")` → `config.get("language", {}).get("source")` |
+| `src/ui/run_config.py` | `config.get("ocr.interval_ms")` → `config_manager.get("ocr.interval_ms")` |
+| `src/ui/settings_window.py` | 同上，使用 ConfigManager.get() 方法 |
+
+### 线程模型
+
+- **主线程 (UI)**: PyQt5 事件循环、用户界面、悬浮窗更新
+- **工作线程 1 (截图)**: `CaptureThread` - 定时截图、区域裁剪
+- **工作线程 2 (OCR)**: `OCRService` (占位符) - 图像去重、OCR识别
+- **工作线程 3 (翻译)**: `TranslationThread` (占位符) - 文本去重、API翻译
+
+---
+
+## 九、区域选择功能任务依赖关系
 
 ```
 DEV-021 窗口截图服务

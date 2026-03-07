@@ -906,7 +906,6 @@ class RegionSelectWidgetWrapper(QWidget):
         # 截图
         try:
             pil_image = capture_window(hwnd)
-            pil_image.save(f"I:\\screenshot\\{uuid.uuid4().hex}.jpg", "JPEG")
             if pil_image is None:
                 QMessageBox.warning(
                     self,
