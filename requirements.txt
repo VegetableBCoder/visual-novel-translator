@@ -7,7 +7,8 @@ PyQt5>=5.15.0
 pywin32>=305
 
 # OCR 引擎
-paddleocr>=2.7.0
+paddleocr==3.4.0
+paddlepaddle==3.2.1
 
 # 图像处理
 Pillow>=10.0.0
@@ -20,4 +21,5 @@ python-Levenshtein>=0.20.0
 requests>=2.31.0
 
 # 其他可选依赖
-# numpy>=1.24.0  # 图像处理可选加速
+numpy>=1.24.0  # 图像处理和图片差分计算
+opencv-python>=4.8.0  # 高效图像差分计算

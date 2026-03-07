@@ -9,7 +9,7 @@ import logging
 from PyQt5.QtCore import QObject, pyqtSignal
 
 from src.service.capture_thread import CaptureThread
-from src.service.ocr_service_placeholder import OCRService
+from src.service.ocr_service import OCRService
 from src.service.translation_thread_placeholder import TranslationThread
 
 logger = logging.getLogger(__name__)

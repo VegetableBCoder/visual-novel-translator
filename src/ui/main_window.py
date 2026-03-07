@@ -17,7 +17,7 @@ from src.ui.run_config import RunConfigWidget
 from src.core.window_capture import WindowCapture
 from src.service.image_processor import ImageProcessor
 from src.service.scheduler import Scheduler
-from src.service.ocr_engine_placeholder import OCREngine
+from src.service.ocr_engine import OCREngine
 from src.service.translator_placeholder import Translator
 from src.service.text_deduplicator_placeholder import TextDeduplicator
 
