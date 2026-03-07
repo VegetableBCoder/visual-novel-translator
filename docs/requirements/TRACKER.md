@@ -12,7 +12,7 @@
 | REQ-002 | 1-翻译基础设置.md | In Progress | 2026-03-06 | 翻译设置界面需求（开发中） |
 | REQ-003 | 2-翻译窗口选择.md | Done | 2026-03-07 | 窗口选择界面需求 |
 | REQ-004 | 3-截屏区域定位.md | Done | 2026-03-07 | 区域选择界面需求 |
-| REQ-005 | 4-运行参数配置.md | Todo | - | 运行参数配置需求 |
+| REQ-005 | 4-运行参数配置.md | Done | 2026-03-07 | 运行参数配置需求 |
 | REQ-006 | 5-OCR文本识别.md | Todo | - | OCR识别后台功能需求 |
 | REQ-007 | 6-文本翻译.md | Todo | - | 文本翻译与结果展示需求 |
 
@@ -26,7 +26,7 @@
 | 翻译设置界面详细设计 (1-翻译设置-详细设计.md) | Done | ui/settings_window.py 设计 |
 | 窗口选择界面详细设计 (2-窗口选择-详细设计.md) | Done | ui/window_select.py 设计 |
 | 截图区域选择界面详细设计 (3-区域选择-详细设计.md) | Done | ui/region_select.py 设计 |
-| 运行参数配置界面详细设计 (4-运行参数-详细设计.md) | Todo | ui/run_config.py 设计（待补充） |
+| 运行参数配置界面详细设计 (4-运行参数-详细设计.md) | Done | ui/run_config.py 设计与实现 |
 | 截图服务与多线程调度 (5-截图服务与多线程调度.md) | Done | controller/scheduler.py + core/capture.py 设计 |
 | OCR服务与PaddleOCR集成 (6-OCR服务与PaddleOCR集成.md) | Done | core/ocr_engine.py 设计 |
 | 文本去重与翻译服务 (7-文本去重与翻译服务.md) | Done | core/text/eduplicator.py + core/translator.py 设计 |
@@ -55,8 +55,8 @@
 | DEV-015 | ui/main_window.py | Done | High | REQ-001 | 主窗口（含界面导航） |
 | DEV-016 | ui/settings_window.py | Done | High | REQ-002 | 翻译设置界面 |
 | DEV-017 | ui/window_select.py | Done | High | REQ-003 | 窗口选择界面 |
-| DEV-018 | ui/region_select.py | Todo | High | REQ-4 | 区域选择界面 |
-| DEV-019 | ui/run_config.py | Todo | High | REQ-005 | 运行参数界面 |
+| DEV-018 | ui/region_select.py | Done | High | REQ-4 | 区域选择界面 |
+| DEV-019 | ui/run_config.py | Done | High | REQ-005 | 运行参数界面 |
 | DEV-020 | ui/floating_window.py | Todo | High | REQ-6 | 悬浮窗 |
 
 ### 区域选择功能细化任务
@@ -87,21 +87,31 @@
 
 | 类别 | Total | Todo | In Progress | Done |
 |------|-------|------|-------------|------|
-| 需求文档 | 7 | 4 | 3 | 0 |
-| 架构设计文档 | 9 | 1 | 0 | 8 |
-| 开发任务 | 37 | 15 | 2 | 20 |
+| 需求文档 | 7 | 3 | 3 | 1 |
+| 架构设计文档 | 9 | 0 | 0 | 9 |
+| 开发任务 | 37 | 13 | 2 | 22 |
 
 ---
 
-## 五、待补充内容
+## 五、运行参数界面开发任务
 
-| 文档 | 缺失内容 |
-|------|---------|
-| 4-运行参数-详细设计.md | 文件内容为空，需要补充完整设计 |
+| ID | 任务描述 | 状态 |
+|----|----------|------|
+| DEV-038 | 创建运行参数界面主框架和布局 | Done |
+| DEV-039 | 实现配置加载和保存功能 | Done |
+| DEV-040 | 实现状态管理和界面更新逻辑 | Done |
+| DEV-041 | 实现滑块与SpinBox联动机制 | Done |
+| DEV-042 | 实现字体选择和颜色选择功能 | Done |
+| DEV-043 | 实现开始/暂停翻译逻辑 | Done |
+| DEV-044 | 修改main_window.py集成运行参数界面 | Done |
+
+## 六、待补充内容
+
+(无待补充内容)
 
 ---
 
-## 六、开发建议
+## 七、开发建议
 
 ### 阶段1：基础设施
 - ✅ DEV-001 项目目录结构创建
@@ -111,7 +121,7 @@
 
 ### 阶段2：核心服务层
 - ✅ DEV-009 窗口管理器
-- DEV-021 窗口截图服务（区域选择先依赖）
+- ✅ DEV-021 窗口截图服务（区域选择先依赖）
 - DEV-010 完整截图服务（含定时）
 - DEV-011 图像处理器
 - DEV-012 OCR引擎
@@ -122,8 +132,8 @@
 - ✅ DEV-015 主窗口
 - ✅ DEV-016 翻译设置界面
 - ✅ DEV-017 窗口选择界面
-- DEV-018 区域选择界面（含 DEV-021~037）
-- DEV-019 运行参数界面
+- ✅ DEV-018 区域选择界面（含 DEV-021~037）
+- ✅ DEV-019 运行参数界面（含 DEV-038~044）
 - DEV-020 悬浮窗
 
 ### 阶段4：控制调度与集成

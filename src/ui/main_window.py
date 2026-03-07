@@ -6,12 +6,14 @@
 
 from PyQt5.QtWidgets import (QMainWindow, QStackedWidget, QWidget,
                            QVBoxLayout, QMessageBox, QApplication)
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
+from typing import Optional
 
 from src.controller.config_interface import IConfigManager
 from src.ui.settings_window import TranslationSettingsWidget
 from src.ui.window_select import WindowSelectWidget
 from src.ui.region_select import RegionSelectWidgetWrapper
+from src.ui.run_config import RunConfigWidget
 
 
 # 界面索引常量
@@ -33,6 +35,10 @@ class MainWindow(QMainWindow):
         """
         super().__init__()
         self.config_manager = config_manager
+
+        # 预留：调度器和悬浮窗实例（为后续实现做兼容）
+        self.scheduler = None
+        self.floating_window = None
 
         self._init_ui()
         self._init_pages()
@@ -68,11 +74,19 @@ class MainWindow(QMainWindow):
         self.region_select_page = RegionSelectWidgetWrapper(self.config_manager)
         self.stacked_widget.addWidget(self.region_select_page)
 
-        # 占位页面（后续实现）
-        self.run_config_placeholder = QWidget()
-        layout = QVBoxLayout(self.run_config_placeholder)
-        layout.addWidget(QWidget())
-        self.stacked_widget.addWidget(self.run_config_placeholder)
+        # 创建运行参数配置界面
+        self.run_config_page = RunConfigWidget(
+            self.config_manager,
+            scheduler=self.scheduler,
+            floating_window=self.floating_window
+        )
+        self.stacked_widget.addWidget(self.run_config_page)
+
+        # 预留：占位页面（后续可实现悬浮窗等其他界面）
+        # self.run_config_placeholder = QWidget()
+        # layout = QVBoxLayout(self.run_config_placeholder)
+        # layout.addWidget(QWidget())
+        # self.stacked_widget.addWidget(self.run_config_placeholder)
 
         # 默认显示翻译设置界面
         self.stacked_widget.setCurrentIndex(PAGE_SETTINGS)
@@ -92,6 +106,13 @@ class MainWindow(QMainWindow):
         self.region_select_page.back_signal.connect(self._on_region_select_back)
         self.region_select_page.next_signal.connect(self._on_region_select_next)
         self.region_select_page.cancel_signal.connect(self.close)
+
+        # 运行参数界面信号
+        self.run_config_page.back_signal.connect(self._on_run_config_back)
+        self.run_config_page.start_signal.connect(self._on_run_config_start)
+        self.run_config_page.pause_signal.connect(self._on_run_config_pause)
+        self.run_config_page.resume_signal.connect(self._on_run_config_resume)
+        self.run_config_page.cancel_signal.connect(self.close)
 
     def _on_settings_next(self):
         """翻译设置界面 - 下一步处理"""
@@ -124,12 +145,38 @@ class MainWindow(QMainWindow):
 
     def _on_region_select_next(self):
         """区域选择界面 - 下一步处理"""
-        # TODO: 切换到运行参数配置界面
-        QMessageBox.information(
-            self,
-            "提示",
-            "区域选择完成！\n运行参数配置界面将在后续开发中实现。"
-        )
+        # 切换到运行参数配置界面
+        self.stacked_widget.setCurrentIndex(PAGE_RUN_CONFIG)
+
+    def _on_run_config_back(self):
+        """运行参数界面 - 上一步处理"""
+        # 返回区域选择界面
+        self.stacked_widget.setCurrentIndex(PAGE_REGION_SELECT)
+
+    def _on_run_config_start(self):
+        """运行参数界面 - 开始翻译处理"""
+        # 预留：由运行参数界面触发，主窗口可以在此执行额外的初始化操作
+        print("[主窗口] 收到开始翻译信号")
+
+        # 预留：后续可以在这里创建和启动调度器
+        # if self.scheduler is None:
+        #     self.scheduler = Scheduler(...)
+        #     self.run_config_page.set_scheduler(self.scheduler)
+
+        # 预留：后续可以在这里创建和显示悬浮窗
+        # if self.floating_window is None:
+        #     self.floating_window = FloatingTranslateWindow(...)
+        #     self.run_config_page.set_floating_window(self.floating_window)
+
+    def _on_run_config_pause(self):
+        """运行参数界面 - 暂停翻译处理"""
+        print("[主窗口] 收到暂停翻译信号")
+        # 预留：由运行参数界面触发，主窗口可以在此执行额外的暂停操作
+
+    def _on_run_config_resume(self):
+        """运行参数界面 - 恢复翻译处理"""
+        print("[主窗口] 收到恢复翻译信号")
+        # 预留：由运行参数界面触发，主窗口可以在此执行额外的恢复操作
 
     def _validate_api_keys(self) -> bool:
         """
