@@ -18,8 +18,8 @@ from src.core.window_capture import WindowCapture
 from src.service.image_processor import ImageProcessor
 from src.service.scheduler import Scheduler
 from src.service.ocr_engine import OCREngine
-from src.service.translator_placeholder import Translator
-from src.service.text_deduplicator_placeholder import TextDeduplicator
+from src.service.translator import Translator
+from src.service.text_deduplicator import TextDeduplicator
 
 # 界面索引常量
 PAGE_SETTINGS = 0  # 翻译设置界面
@@ -199,8 +199,14 @@ class MainWindow(QMainWindow):
         window_capture = WindowCapture()
         image_processor = ImageProcessor()
         ocr_engine = OCREngine()
-        translator = Translator()
-        text_deduplicator = TextDeduplicator()
+
+        # 从配置读取文本去重阈值
+        config = self.config_manager.load_config()
+        text_threshold = config.get("ocr", {}).get("text_threshold", 75)
+
+        # 创建翻译器和文本去重器
+        translator = Translator(self.config_manager)
+        text_deduplicator = TextDeduplicator(threshold=text_threshold)
 
         # 创建调度器
         self.scheduler = Scheduler()

@@ -49,9 +49,9 @@
 | DEV-009 | core/window_manager.py | Done | High | REQ-003 | 窗口管理器 |
 | DEV-010 | core/capture.py | Done | High | REQ-4 | 截图服务（service/capture_thread.py） |
 | DEV-011 | core/image_processor.py | Done | High | REQ-4 | 图像处理（service/image_processor.py） |
-| DEV-012 | core/ocr_engine.py | Todo | High | REQ-5 | OCR服务（PaddleOCR） |
-| DEV-013 | core/text_deduplicator.py | Todo | High | | 文本去重 |
-| DEV-014 | core/translator.py | Todo | High | REQ-6 | 翻译服务 |
+| DEV-012 | core/ocr_engine.py | Done | High | REQ-5 | OCR服务（PaddleOCR） |
+| DEV-013 | core/text_deduplicator.py | Done | High | | 文本去重 |
+| DEV-014 | core/translator.py | Done | High | REQ-6 | 翻译服务 |
 | DEV-015 | ui/main_window.py | Done | High | REQ-001 | 主窗口（含界面导航） |
 | DEV-016 | ui/settings_window.py | Done | High | REQ-002 | 翻译设置界面 |
 | DEV-017 | ui/window_select.py | Done | High | REQ-003 | 窗口选择界面 |
@@ -89,7 +89,7 @@
 |------|-------|------|-------------|------|
 | 需求文档 | 7 | 3 | 1 | 3 |
 | 架构设计文档 | 8 | 0 | 0 | 8 |
-| 开发任务 | 44 | 11 | 1 | 32 |
+| 开发任务 | 44 | 8 | 1 | 35 |
 
 ---
 
@@ -124,9 +124,9 @@
 - ✅ DEV-021 窗口截图服务（区域选择先依赖）
 - ✅ DEV-010 完整截图服务（含定时）
 - ✅ DEV-011 图像处理器
-- DEV-012 OCR引擎
-- DEV-013 文本去重器
-- DEV-014 翻译服务
+- ✅ DEV-012 OCR引擎
+- ✅ DEV-013 文本去重器
+- ✅ DEV-014 翻译服务
 
 ### 阶段3：用户界面层
 - ✅ DEV-015 主窗口
@@ -153,11 +153,11 @@
 | 图像处理 | `src/service/image_processor.py` | ✅ Done | 区域裁剪、图像缩放、统一宽度 |
 | 截图线程 | `src/service/capture_thread.py` | ✅ Done | 定时截图、智能间隔控制、暂停/恢复/停止 |
 | 任务调度器 | `src/service/scheduler.py` | ✅ Done | 管理截图线程、OCR服务、翻译线程 |
-| OCR服务（占位） | `src/service/ocr_service_placeholder.py` | ⏳ 占位符 | 图像差分去重 + OCR识别（待实现） |
-| OCR引擎（占位） | `src/service/ocr_engine_placeholder.py` | ⏳ 占位符 | PaddleOCR集成（待实现） |
-| 翻译线程（占位） | `src/service/translation_thread_placeholder.py` | ⏳ 占位符 | 文本去重 + 翻译（待实现） |
-| 翻译服务（占位） | `src/service/translator_placeholder.py` | ⏳ 占位符 | API集成（待实现） |
-| 文本去重器（占位） | `src/service/text_deduplicator_placeholder.py` | ⏳ 占位符 | Levenshtein编辑距离（待实现） |
+| OCR服务 | `src/service/ocr_service.py` | ✅ Done | 图像差分去重 + OCR识别 |
+| OCR引擎（占位） | `src/service/ocr_engine.py` | ✅ Done | PaddleOCR集成，支持新旧两种返回格式 |
+| 翻译线程（占位） | `src/service/translation_thread.py` | ✅ Done | 文本去重 + 翻译 |
+| 翻译服务（占位） | `src/service/translator.py` | ✅ Done | API集成（阿里云/Google，使用HTTP调用） |
+| 文本去重器（占位） | `src/service/text_deduplicator.py` | ✅ Done | Levenshtein编辑距离 |
 
 ### 数据流向
 
