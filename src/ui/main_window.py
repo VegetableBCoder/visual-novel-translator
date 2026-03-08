@@ -14,6 +14,7 @@ from src.ui.settings_window import TranslationSettingsWidget
 from src.ui.window_select import WindowSelectWidget
 from src.ui.region_select import RegionSelectWidgetWrapper
 from src.ui.run_config import RunConfigWidget
+from src.ui.floating_window import FloatingTranslateWindow
 from src.core.window_capture import WindowCapture
 from src.service.image_processor import ImageProcessor
 from src.service.scheduler import Scheduler
@@ -79,7 +80,10 @@ class MainWindow(QMainWindow):
         self.region_select_page = RegionSelectWidgetWrapper(self.config_manager)
         self.stacked_widget.addWidget(self.region_select_page)
 
-        # 创建运行参数配置界面
+        # 创建悬浮窗（独立窗口，不加入 stacked_widget）
+        self.floating_window = FloatingTranslateWindow(self.config_manager)
+
+        # 创建运行参数配置界面，传入悬浮窗实例
         self.run_config_page = RunConfigWidget(
             self.config_manager,
             scheduler=self.scheduler,
@@ -118,6 +122,9 @@ class MainWindow(QMainWindow):
         self.run_config_page.pause_signal.connect(self._on_run_config_pause)
         self.run_config_page.resume_signal.connect(self._on_run_config_resume)
         self.run_config_page.cancel_signal.connect(self.close)
+
+        # 悬浮窗信号
+        self.floating_window.closeRequested.connect(self._on_floating_window_close_requested)
 
     def _on_settings_next(self):
         """翻译设置界面 - 下一步处理"""
@@ -173,11 +180,19 @@ class MainWindow(QMainWindow):
         # 启动调度器
         self.scheduler.start()
 
+        # 显示悬浮窗
+        if self.floating_window:
+            self.floating_window.show()
+
     def _on_run_config_pause(self):
         """运行参数界面 - 暂停翻译处理"""
         print("[主窗口] 收到暂停翻译信号")
         if self.scheduler:
             self.scheduler.pause()
+
+        # 隐藏悬浮窗
+        if self.floating_window:
+            self.floating_window.hide()
 
     def _on_run_config_resume(self):
         """运行参数界面 - 恢复翻译处理"""
@@ -190,6 +205,17 @@ class MainWindow(QMainWindow):
         # 恢复调度器
         if self.scheduler:
             self.scheduler.resume()
+
+        # 显示悬浮窗
+        if self.floating_window:
+            self.floating_window.show()
+
+    def _on_floating_window_close_requested(self):
+        """悬浮窗关闭请求处理（等同于暂停翻译）"""
+        print("[主窗口] 收到悬浮窗关闭请求")
+        # 通知运行参数界面暂停翻译
+        if self.run_config_page:
+            self.run_config_page.force_pause()
 
     def _create_scheduler(self):
         """创建调度器和所有依赖"""
@@ -229,9 +255,9 @@ class MainWindow(QMainWindow):
     def _on_translation_result(self, original, translated, timestamp):
         """接收翻译结果"""
         print(f"[主窗口] 收到翻译结果: {original} -> {translated}")
-        # TODO: 后续实现悬浮窗更新
+        # 更新悬浮窗显示
         if self.floating_window:
-            self.floating_window.set_translation(original, translated)
+            self.floating_window.on_translation_completed(original, translated)
 
     def _on_error(self, error_msg):
         """接收错误信息"""
