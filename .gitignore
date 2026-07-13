@@ -3,3 +3,5 @@
 nul
 __pycache__/
 *.pyc
+models/
+*.gguf/
