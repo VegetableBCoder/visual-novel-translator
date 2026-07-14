@@ -1,0 +1,22 @@
+{
+  "name": "beautiful-mermaid-renderer",
+  "version": "1.0.0",
+  "description": "Render Mermaid diagrams to PNG using beautiful-mermaid + agent-browser",
+  "type": "module",
+  "scripts": {
+    "render": "node scripts/render.mjs"
+  },
+  "keywords": [
+    "mermaid",
+    "diagram",
+    "png",
+    "beautiful-mermaid",
+    "agent-browser"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "agent-browser": "^0.31.2",
+    "beautiful-mermaid": "^1.1.3"
+  }
+}
